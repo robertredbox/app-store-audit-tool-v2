@@ -46,6 +46,25 @@
             left: 0.5rem;
             color: #2c5282;
         }
+        .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #ef4444;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .delete-btn:hover {
+            background-color: #dc2626;
+        }
         @media print {
             .no-print {
                 display: none;
@@ -89,7 +108,7 @@
             <button id="generateReport" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 no-print">
                 Generate Report
             </button>
-            <button id="downloadPDF" class="hidden bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 no-print">
+            <button id="downloadPDF" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 no-print" style="display: none;">
                 Download PDF
             </button>
         </div>
@@ -149,7 +168,6 @@
                 callToAction: []
             };
             
-            // Simulate color analysis
             for (let file of files) {
                 analysis.colorScheme.push({
                     dominant: 'Primary brand color detected',
@@ -161,6 +179,17 @@
             return analysis;
         }
 
+        function deleteScreenshot(button) {
+            button.parentElement.remove();
+            
+            // If this was the last screenshot, hide the report
+            if (document.getElementById('screenshotPreview').children.length === 0) {
+                document.getElementById('reportContent').classList.add('hidden');
+                document.getElementById('downloadPDF').style.display = 'none';
+                document.getElementById('screenshotUpload').value = '';
+            }
+        }
+
         // Handle screenshot upload and preview
         document.getElementById('screenshotUpload').addEventListener('change', function(e) {
             const previewDiv = document.getElementById('screenshotPreview');
@@ -169,10 +198,13 @@
             Array.from(e.target.files).forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.className = 'screenshot-preview rounded';
-                    previewDiv.appendChild(img);
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'relative';
+                    wrapper.innerHTML = `
+                        <button onclick="deleteScreenshot(this)" class="delete-btn">×</button>
+                        <img src="${e.target.result}" class="screenshot-preview rounded">
+                    `;
+                    previewDiv.appendChild(wrapper);
                 }
                 reader.readAsDataURL(file);
             });
@@ -182,33 +214,33 @@
         document.getElementById('generateReport').addEventListener('click', async function() {
             const appName = document.getElementById('appName').value;
             const appStoreUrl = document.getElementById('appStoreUrl').value;
-            const screenshots = document.getElementById('screenshotUpload').files;
-            const analysis = await analyzeScreenshots(screenshots);
+            const screenshots = document.getElementById('screenshotPreview').querySelectorAll('img');
+            
+            if (screenshots.length === 0) {
+                alert('Please upload at least one screenshot to generate a report.');
+                return;
+            }
 
             // Show results and PDF button
-            document.getElementById('analysisResults').classList.remove('hidden');
-            document.getElementById('downloadPDF').classList.remove('hidden');
+            document.getElementById('reportContent').classList.remove('hidden');
+            document.getElementById('downloadPDF').style.display = 'inline-flex';
             
             // Update report header
             document.getElementById('reportAppName').textContent = appName;
             document.getElementById('reportDate').textContent = new Date().toLocaleDateString();
             document.getElementById('reportStoreUrl').textContent = appStoreUrl;
 
-            // Create screenshot grid
+            // Create screenshot grid for the report
             const screenshotGrid = document.getElementById('screenshotGrid');
             screenshotGrid.innerHTML = '';
-            Array.from(screenshots).forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'flex flex-col items-center';
-                    div.innerHTML = `
-                        <img src="${e.target.result}" class="screenshot-preview mb-2">
-                        <span class="text-sm text-gray-600">Screenshot ${index + 1}</span>
-                    `;
-                    screenshotGrid.appendChild(div);
-                }
-                reader.readAsDataURL(file);
+            Array.from(screenshots).forEach((img, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex flex-col items-center';
+                div.innerHTML = `
+                    <img src="${img.src}" class="screenshot-preview mb-2">
+                    <span class="text-sm text-gray-600">Screenshot ${index + 1}</span>
+                `;
+                screenshotGrid.appendChild(div);
             });
 
             // Update visual analysis
