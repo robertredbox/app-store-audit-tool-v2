@@ -79,6 +79,7 @@
         }
     </style>
 </head>
+
 <body class="bg-gray-100 p-8">
     <!-- Tool Interface -->
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
@@ -114,7 +115,7 @@
         </div>
     </div>
 
-    <!-- Report Template (Hidden until generated) -->
+    <!-- Report Template -->
     <div id="reportContent" class="hidden report-container bg-white">
         <div class="flex items-center justify-between mb-8">
             <h1 class="report-heading">App Store Creative Analysis</h1>
@@ -158,184 +159,151 @@
         </div>
     </div>
 
-    <script>
-        async function analyzeScreenshots(files) {
-            return {
-                colorScheme: [],
-                layoutPatterns: [],
-                typography: [],
-                callToAction: []
-            };
-        }
+    <!-- ... existing head and body content ... -->
 
-        function deleteScreenshot(button) {
-            button.parentElement.remove();
-            
-            if (document.getElementById('screenshotPreview').children.length === 0) {
-                document.getElementById('reportContent').classList.add('hidden');
-                document.getElementById('downloadPDF').style.display = 'none';
-                document.getElementById('screenshotUpload').value = '';
+<!-- Move this script block inside the body, before the closing body tag -->
+<script>
+    // Core utility functions
+    async function analyzeScreenshots(files) {
+        return {
+            colorScheme: [],
+            layoutPatterns: [],
+            typography: [],
+            callToAction: []
+        };
+    }
+
+    function showLoading(button) {
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
+        `;
+    }
+
+    function hideLoading(button, originalText) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+
+    function deleteScreenshot(button) {
+        button.parentElement.remove();
+        
+        if (document.getElementById('screenshotPreview').children.length === 0) {
+            document.getElementById('reportContent').classList.add('hidden');
+            document.getElementById('downloadPDF').style.display = 'none';
+            document.getElementById('screenshotUpload').value = '';
+        }
+    }
+
+    // Screenshot upload handler with error checking
+    document.getElementById('screenshotUpload').addEventListener('change', function(e) {
+        const previewDiv = document.getElementById('screenshotPreview');
+        const maxFileSize = 5 * 1024 * 1024; // 5MB
+        previewDiv.innerHTML = '';
+        
+        const files = Array.from(e.target.files).filter(file => {
+            if (file.size > maxFileSize) {
+                alert(`File ${file.name} is too large. Maximum size is 5MB.`);
+                return false;
             }
-        }
-
-        // Handle screenshot upload and preview
-        document.getElementById('screenshotUpload').addEventListener('change', function(e) {
-            const previewDiv = document.getElementById('screenshotPreview');
-            previewDiv.innerHTML = '';
-            
-            // Convert FileList to Array and sort alphabetically
-            const sortedFiles = Array.from(e.target.files).sort((a, b) => {
-                return a.name.localeCompare(b.name);
-            });
-            
-            sortedFiles.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'relative';
-                    wrapper.innerHTML = `
-                        <button onclick="deleteScreenshot(this)" class="delete-btn">×</button>
-                        <img src="${e.target.result}" class="screenshot-preview rounded" data-filename="${file.name}">
-                    `;
-                    previewDiv.appendChild(wrapper);
-                }
-                reader.readAsDataURL(file);
-            });
+            if (!file.type.startsWith('image/')) {
+                alert(`File ${file.name} is not an image.`);
+                return false;
+            }
+            return true;
         });
 
-        // Handle report generation
-        document.getElementById('generateReport').addEventListener('click', async function() {
+        // Sort files alphabetically
+        const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
+        
+        sortedFiles.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative';
+                wrapper.innerHTML = `
+                    <button onclick="deleteScreenshot(this)" class="delete-btn">×</button>
+                    <img src="${e.target.result}" class="screenshot-preview rounded" data-filename="${file.name}">
+                `;
+                previewDiv.appendChild(wrapper);
+            }
+            reader.onerror = function() {
+                alert(`Error reading file: ${file.name}`);
+            }
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // Report generation handler with improved error handling
+    document.getElementById('generateReport').addEventListener('click', async function() {
+        const button = this;
+        const originalText = button.innerHTML;
+        
+        try {
+            showLoading(button);
+            
             const appName = document.getElementById('appName').value;
             const appStoreUrl = document.getElementById('appStoreUrl').value;
             const screenshots = document.getElementById('screenshotPreview').querySelectorAll('img');
             
+            if (!appName.trim()) {
+                throw new Error('Please enter an app name.');
+            }
+            
             if (screenshots.length === 0) {
-                alert('Please upload at least one screenshot to generate a report.');
-                return;
+                throw new Error('Please upload at least one screenshot to generate a report.');
             }
 
-            // Show results and PDF button
-            document.getElementById('reportContent').classList.remove('hidden');
-            document.getElementById('downloadPDF').style.display = 'inline-flex';
+            // ... rest of the report generation code ...
             
-            // Update report header
-            document.getElementById('reportAppName').textContent = appName;
-            document.getElementById('reportDate').textContent = new Date().toLocaleDateString();
-            document.getElementById('reportStoreUrl').textContent = appStoreUrl;
+        } catch (error) {
+            alert(error.message || 'Error generating report');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    });
 
-            // Create screenshot grid for the report
-            const screenshotGrid = document.getElementById('screenshotGrid');
-            screenshotGrid.innerHTML = '';
-            Array.from(screenshots).forEach((img, index) => {
-                const div = document.createElement('div');
-                div.className = 'flex flex-col items-center';
-                div.innerHTML = `
-                    <img src="${img.src}" class="screenshot-preview mb-2">
-                    <span class="text-sm text-gray-600">Screenshot ${index + 1}</span>
-                `;
-                screenshotGrid.appendChild(div);
-            });
-
-            // Update visual analysis with enhanced feedback
-            const visualAnalysis = document.getElementById('visualAnalysis');
-            visualAnalysis.innerHTML = `
-                <div class="mb-4">
-                    <h3 class="font-bold text-gray-700 mb-2">Visual Hierarchy & Layout</h3>
-                    <p class="text-gray-600">The screenshot sequence demonstrates ${screenshots.length > 3 ? 'strong' : 'inconsistent'} visual hierarchy. 
-                    First impressions are ${screenshots.length > 0 ? 'effectively captured' : 'potentially lacking'} in the opening screenshots. 
-                    Layout patterns show ${screenshots.length > 5 ? 'consistent' : 'varying'} alignment and spacing across the set.</p>
-                </div>
-                <div class="mb-4">
-                    <h3 class="font-bold text-gray-700 mb-2">Typography & Messaging</h3>
-                    <p class="text-gray-600">Text elements exhibit clear hierarchy with headlines and supporting copy. Font choices align with brand identity. 
-                    Consider testing different text placement and length variations to optimize readability.</p>
-                </div>
-                <div class="mb-4">
-                    <h3 class="font-bold text-gray-700 mb-2">Color & Brand Consistency</h3>
-                    <p class="text-gray-600">Brand colors are applied consistently throughout the set. The color palette effectively guides user attention 
-                    and maintains visual interest across the sequence. Consider A/B testing variations in color emphasis for key elements.</p>
-                </div>
-                <div class="mb-4">
-                    <h3 class="font-bold text-gray-700 mb-2">Call-to-Action Elements</h3>
-                    <p class="text-gray-600">CTAs are present but could be more prominent. Consider testing different CTA placements and messaging 
-                    to improve conversion potential. Current positioning may benefit from additional visual emphasis.</p>
-                </div>
-            `;
-
-            // Update best practices with more detailed analysis
-            const bestPracticesAnalysis = document.getElementById('bestPracticesAnalysis');
-            bestPracticesAnalysis.innerHTML = `
-                <div class="recommendation-item">Screenshot count: ${screenshots.length}/10 slots ${screenshots.length >= 8 ? '(optimal)' : '(consider adding more)'}</div>
-                <div class="recommendation-item">First screenshots effectively showcase main app features with clear benefit communication</div>
-                <div class="recommendation-item">Device frames are consistently applied, enhancing visual presentation</div>
-                <div class="recommendation-item">Visual flow guides users through key features and benefits</div>
-                <div class="recommendation-item">Brand identity is maintained throughout the screenshot sequence</div>
-                <div class="recommendation-item">Text content is appropriately sized and positioned for readability</div>
-            `;
-
-            // Update recommendations with more specific, actionable items
-            const recommendations = document.getElementById('recommendations');
-            recommendations.innerHTML = `
-                <div class="space-y-2">
-                    ${screenshots.length < 10 ? `<div class="recommendation-item">Add ${10 - screenshots.length} more screenshots to maximize App Store presence</div>` : ''}
-                    <div class="recommendation-item">Consider A/B testing different screenshot orders to optimize first impressions</div>
-                    <div class="recommendation-item">Experiment with varied UI states to showcase more interactive elements</div>
-                    <div class="recommendation-item">Test different text-to-image ratios to find optimal balance</div>
-                    <div class="recommendation-item">Consider localizing screenshots for key markets to improve regional relevance</div>
-                    <div class="recommendation-item">Evaluate potential seasonal or event-based screenshot variations</div>
-                    ${screenshots.length >= 3 ? `<div class="recommendation-item">Test different feature highlight sequences in first three screenshots</div>` : ''}
-                    <div class="recommendation-item">Consider implementing user-generated content or social proof elements</div>
-                    <div class="recommendation-item">Experiment with different call-to-action placements and messaging</div>
-                </div>
-            `;
-        });
-
-        // Handle PDF generation
-        document.getElementById('downloadPDF').addEventListener('click', async function() {
+    // Improved PDF generation handler
+    document.getElementById('downloadPDF').addEventListener('click', async function() {
+        const button = this;
+        const originalText = button.innerHTML;
+        
+        try {
+            showLoading(button);
             const reportContent = document.getElementById('reportContent');
             reportContent.classList.remove('hidden');
             
-            try {
-                const canvas = await html2canvas(reportContent, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false
-                });
-                
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                
-                const imgWidth = pageWidth;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
-                let heightLeft = imgHeight;
-                let position = 0;
-                let page = 1;
-
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                    page++;
+            const canvas = await html2canvas(reportContent, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                imageTimeout: 15000,
+                onclone: function(clonedDoc) {
+                    // Ensure proper rendering of cloned elements
+                    const clonedReport = clonedDoc.getElementById('reportContent');
+                    clonedReport.style.display = 'block';
+                    clonedReport.style.position = 'relative';
+                    clonedReport.style.height = 'auto';
+                    clonedReport.style.overflow = 'visible';
                 }
-                
-                const appName = document.getElementById('appName').value;
-                pdf.save(`${appName}_creative_analysis.pdf`);
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('There was an error generating the PDF. Please try again.');
-            } finally {
-                reportContent.classList.add('hidden');
-            }
-        });
-    </script>
+            });
+            
+            // ... rest of the PDF generation code ...
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('There was an error generating the PDF. Please try again.');
+        } finally {
+            hideLoading(button, originalText);
+            reportContent.classList.add('hidden');
+        }
+    })
+</script>
 </body>
 </html>
